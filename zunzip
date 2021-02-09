@@ -1,0 +1,93 @@
+#!/usr/bin/env python3
+
+import os
+import sys
+import argparse
+import logging
+import fnmatch
+import shutil
+import glob
+import zipfile
+from pathlib import Path
+import contextlib
+
+
+@contextlib.contextmanager
+def ignored(*exceptions):
+    try:
+        yield
+    except exceptions:
+        pass
+
+def process_zip(scratch_path, archive_path, filter_pattern):
+    for path, _, files in os.walk(os.path.abspath(scratch_path)):
+        for archive in fnmatch.filter(files, filter_pattern):
+            source = os.path.join(path, archive)
+            sarch = Path(source)
+            processed = os.path.join(archive_path, archive)
+            print(f"Evaluate {source}")
+            # if there is a folder of the same name move to processed
+            target = Path(source.replace('.zip',''))
+            # else unzip and then move the file
+            # before doing so ensure the archive contains FLAC files
+            movearch = False
+            if target.exists() and target.is_dir():
+                # maybe check for flac files here too
+                movearch = True
+            else:
+                with zipfile.ZipFile(source) as zip:
+                    # available files in the container
+                    for ftest in zip.namelist():
+                        if 'flac' in ftest:
+                            zip.printdir()
+                            print(f">>> Extract {source} to {target}")
+                            target.mkdir(parents=True, exist_ok=True)
+                            zip.extractall(target)
+                            movearch = True
+                            break
+            if movearch:
+                print(f">>> Move {source} to {archive_path}")
+                # use shutil so cross disk & NAS moves are supported
+                shutil.move(sarch,processed)
+
+
+def main(args):
+
+    process_zip(args.directory, args.processed, args.filter)
+
+
+log_file = '/tmp/zunzip.log'
+parser = argparse.ArgumentParser()
+parser.add_argument('--directory', '-d',
+                    help='Base Directory',
+                    type=str,
+                    default='/hdd/scratch/')
+parser.add_argument('--processed', '-a',
+                    help='Processed Directory',
+                    type=str,
+                    default='/data2/processed/')
+parser.add_argument('--filter', '-f',
+                    help='Archive (filter)',
+                    type=str,
+                    default='* - *.zip')
+
+args = parser.parse_args()
+
+if __name__ == "__main__":
+
+    log_format = '%(asctime)s %(levelname)-8s %(message)s'
+    console = logging.StreamHandler()
+    console.setLevel(logging.INFO)
+    formatter = logging.Formatter(log_format)
+    console.setFormatter(formatter)
+    logging.basicConfig(level=logging.DEBUG,
+                        format=log_format,
+                        datefmt='%m-%d-%y %H:%M',
+                        filename=log_file,
+                        filemode='a')
+
+    logging.getLogger('').addHandler(console)
+
+    main(args)
+
+sys.exit(0)

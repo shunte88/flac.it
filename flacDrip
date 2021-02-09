@@ -1,0 +1,152 @@
+#!/usr/bin/env python3
+
+import os
+import sys
+import argparse
+import logging
+import fnmatch
+import errno
+import re
+import glob
+from pathlib import Path
+import subprocess
+import contextlib
+
+
+@contextlib.contextmanager
+def ignored(*exceptions):
+    try:
+        yield
+    except exceptions:
+        pass
+
+
+def run_command(cmd, exc=0):
+
+    logging.debug(cmd)
+    if 1 == exc:
+        try:
+            rc = subprocess.run(cmd, shell=True)
+            if 0 == rc.returncode:
+                return True
+        except subprocess.CalledProcessError as err:
+            logger.warning(err.output)
+            return False
+    return False
+
+
+def process_folders(pattern, scratch_path, country, catalog):
+    rs1 = re.compile(" (FLAC| - flac|Hi-Res|Vinyl|CD|\(CD\))$")
+    splits = " - "
+    rs0 = re.compile(splits)
+    clean = False
+    cleanf = None
+    fixes = {}
+    albumName = ''
+    for path, dir, _ in os.walk(os.path.abspath(scratch_path)):
+        for name in fnmatch.filter(dir, pattern):
+
+            process = os.path.join(path, name)
+            srce = Path(process)
+
+            name = name.replace('\[ONTIVA.COM\] ','')
+            name = name.replace('[ONTIVA.COM] ','')
+
+            if splits in name: # safe
+
+                print(f"Source: {process}")
+
+                _artist, _album = name.split(splits,1)
+                _artist = _artist.strip()
+                albumName = rs1.sub('', _album.strip())
+                _album = f"{albumName} [{country}] [{catalog}]"
+                detail = {'album':albumName,'artist':_artist}
+
+                dname = f"{path}/{_artist}/{_album}"
+                print(f"Target: {dname}")
+
+                if not os.path.exists(dname):
+                    try:
+                        os.makedirs(dname)
+                    except OSError as exc:
+                        if exc.errno != errno.EEXIST:
+                            raise
+
+                # now move the source file to target
+                srce.replace(dname)
+                fixes[dname] = detail
+
+    # renames should be in effect but perform standalone
+    # fix filenames - sub-folder or multi-disc not supported
+    for fix in fixes:
+        _artist = fixes[fix]['artist']
+        _album = fixes[fix]['album']
+        cmd = f'cd "{fix}" && rename "s/^(\d+)\./01-\\1 -/ig" *.flac'
+        print(f"........: {cmd}")
+        run_command(cmd, 1)
+        cmd = f'cd "{fix}" && rename "s/^.* - (\d+)/01-\\1 -/ig" *.flac'
+        print(f"........: {cmd}")
+        run_command(cmd, 1)
+        cmd = f'cd "{fix}" && rename "s/^{_album}-0(\d+)-{_artist}-/01-\\1 - /ig" *.flac'
+        print(f"........: {cmd}")
+        run_command(cmd, 1)
+        cmd = f'cd "{fix}" && mv -f folder.jpg cover.jpg'
+        print(f"........: {cmd}")
+        run_command(cmd, 1)
+        cmd = f'cd "{fix}" && mv -f "{_album}.jpg" cover.jpg'
+        print(f"........: {cmd}")
+        run_command(cmd, 1)
+        cmd = f'cd "{fix}" && mv -f "{_album}.jpeg" cover.jpg'
+        print(f"........: {cmd}")
+        run_command(cmd, 1)
+
+
+# https://www.threshold-lovers.com/2020/10/04/alim-9v12v-top-niveau/
+# scratch 536 - 2020
+# \b(\w+(?:\s*\w*))\s+\1\b
+def main(args):
+
+    process_folders(args.filter+'*', args.directory, args.country, args.catalog)
+
+
+log_file = '/tmp/fixflacfolders.log'
+parser = argparse.ArgumentParser()
+
+parser.add_argument('--country', '-c',
+                    help='ISO Country Code (2char)',
+                    type=str,
+                    default=' ')
+parser.add_argument('--catalog', '-i',
+                    help='Catalog Number',
+                    type=str,
+                    default=' ')
+parser.add_argument('--filter', '-f',
+                    help='Folders to process (wildcards supported)',
+                    type=str,
+                    default='*-*')
+parser.add_argument('--directory', '-d',
+                    help='Base Directory',
+                    type=str,
+                    default='/hdd/scratch/')
+
+
+args = parser.parse_args()
+
+if __name__ == "__main__":
+
+    log_format = '%(asctime)s %(levelname)-8s %(message)s'
+    console = logging.StreamHandler()
+    console.setLevel(logging.INFO)
+    formatter = logging.Formatter(log_format)
+    console.setFormatter(formatter)
+    logging.basicConfig(level=logging.DEBUG,
+                        format=log_format,
+                        datefmt='%m-%d-%y %H:%M',
+                        filename=log_file,
+                        filemode='a')
+
+    logging.getLogger('').addHandler(console)
+
+    main(args)
+
+sys.exit(0)
