@@ -8,6 +8,7 @@ import fnmatch
 import shutil
 import glob
 import zipfile
+import rarfile
 from pathlib import Path
 import contextlib
 
@@ -19,7 +20,7 @@ def ignored(*exceptions):
     except exceptions:
         pass
 
-def process_zip(scratch_path, archive_path, filter_pattern):
+def process_container(scratch_path, archive_path, filter_pattern):
     for path, _, files in os.walk(os.path.abspath(scratch_path)):
         for archive in fnmatch.filter(files, filter_pattern):
             source = os.path.join(path, archive)
@@ -27,7 +28,7 @@ def process_zip(scratch_path, archive_path, filter_pattern):
             processed = os.path.join(archive_path, archive)
             print(f"Evaluate {source}")
             # if there is a folder of the same name move to processed
-            target = Path(source.replace('.zip',''))
+            target = Path(source.replace('.zip','').replace('.rar',''))
             # else unzip and then move the file
             # before doing so ensure the archive contains FLAC files
             movearch = False
@@ -35,7 +36,13 @@ def process_zip(scratch_path, archive_path, filter_pattern):
                 # maybe check for flac files here too
                 movearch = True
             else:
-                with zipfile.ZipFile(source) as zip:
+
+                # define the container "class" methods
+                container = zipfile.ZipFile
+                if 'rar' in filter_pattern:
+                    container = rarfile.RarFile
+
+                with container(source) as zip:
                     # available files in the container
                     for ftest in zip.namelist():
                         if 'flac' in ftest:
@@ -53,7 +60,7 @@ def process_zip(scratch_path, archive_path, filter_pattern):
 
 def main(args):
 
-    process_zip(args.directory, args.processed, args.filter)
+    process_container(args.directory, args.processed, args.filter)
 
 
 log_file = '/tmp/zunzip.log'
@@ -67,7 +74,7 @@ parser.add_argument('--processed', '-a',
                     type=str,
                     default='/data2/processed/')
 parser.add_argument('--filter', '-f',
-                    help='Archive (filter)',
+                    help='Archive (filter .zip or .rar string)',
                     type=str,
                     default='* - *.zip')
 
