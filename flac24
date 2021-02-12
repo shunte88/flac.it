@@ -125,9 +125,11 @@ def process_folders(pattern, scratch_path, country, catalog):
         cmd = f'cd "{fix}" && mv -f "{_album}.jpg" cover.jpg'
         print(f"........: {cmd}")
         run_command(cmd, 1)
+        for file in ('checksums.md5', 'Folder.auCDtect.txt', 'foo_dr.txt', 'accurip.txt', '*.log'):
+            cmd = f'cd "{fix}" && rm -f "{file}"'
+            print(f"........: {cmd}")
+            run_command(cmd, 1)
 
-# https://www.threshold-lovers.com/2020/10/04/alim-9v12v-top-niveau/
-# scratch 536 - 2020
 # \b(\w+(?:\s*\w*))\s+\1\b
 def main(args):
 
