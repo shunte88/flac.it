@@ -119,6 +119,9 @@ def process_folders(pattern, scratch_path, country, catalog):
         cmd = f'cd "{fix}" && rename "s/^{_album}-0(\d+)-{_artist}-/01-\\1 - /ig" *.flac'
         print(f"........: {cmd}")
         run_command(cmd, 1)
+        cmd = f'cd "{fix}" && rename "s/- {_artist} -/- /ig" *.flac'
+        print(f"........: {cmd}")
+        run_command(cmd, 1)
         cmd = f'cd "{fix}" && mv -f folder.jpg cover.jpg'
         print(f"........: {cmd}")
         run_command(cmd, 1)
