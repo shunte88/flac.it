@@ -106,7 +106,7 @@ def process_folders(pattern, scratch_path, country, catalog, various):
         cmd = f'cd "{fix}" && mv -f "{_album}.jpeg" cover.jpg'
         print(f"........: {cmd}")
         run_command(cmd, 1)
-        for file in ('checksums.md5', 'Folder.auCDtect.txt', 'foo_dr.txt', 'accurip.txt', f'{_artist} - {_album}.log', f'{_artist} - {_album}.m3u', '*.log'):
+        for file in ('checksums.md5', '*.m3u', '*.txt', '*.log'):
             cmd = f'cd "{fix}" && rm -f "{file}"'
             print(f"........: {cmd}")
             run_command(cmd, 1)

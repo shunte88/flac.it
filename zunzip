@@ -43,9 +43,9 @@ def process_container(scratch_path, archive_path, filter_pattern):
                     container = rarfile.RarFile
 
                 with container(source) as zip:
-                    # available files in the container, flac, dsd, dsf - no mp3 - ever!!!
+                    # available files in the container, inc. mp3 ughhhh!
                     for _ftest in zip.namelist():
-                        if any(_test in _ftest for _test in ('flac','dsd','dsf')):
+                        if any(_test in _ftest for _test in ('flac','dsd','dsf','wav','mp3')):
                             zip.printdir()
                             print(f">>> Extract {source} to {target}")
                             target.mkdir(parents=True, exist_ok=True)
