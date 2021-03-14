@@ -35,7 +35,10 @@ def run_command(cmd, exc=0):
     return False
 
 
-def process_folders(pattern, scratch_path, country, catalog, various):
+def process_folders(pattern, scratch_path, country, catalog, various, juno):
+
+    print(f"{pattern} on {scratch_path}")
+
     rs2 = re.compile("^Various Artists - ")
     rs1 = re.compile(" (FLAC| - flac|Hi-Res|Vinyl|CD|\(CD\))$")
     splits = " - "
@@ -46,14 +49,23 @@ def process_folders(pattern, scratch_path, country, catalog, various):
     nullify = '' # syntax colorization in nano editor buggy
     albumName = ''
     for path, dir, _ in os.walk(os.path.abspath(scratch_path)):
+
         for name in fnmatch.filter(dir, pattern):
 
             print(f"{name} ???")
             process = os.path.join(path, name)
             srce = Path(process)
 
-            name = name.replace('\[ONTIVA.COM\] ',nullify)
-            name = name.replace('[ONTIVA.COM] ',nullify)
+
+            for site in ('ONTIVA','BTCLOD'):
+                name = name.replace(f'\[{site}.COM\] ','')
+                name = name.replace(f'[{site}.COM\] ','')
+            #name = name.replace('\[ONTIVA.COM\] ',nullify)
+            #name = name.replace('[ONTIVA.COM] ',nullify)
+
+            if juno:
+                name = name.replace('\_',' ')
+
             name = rs2.sub(nullify, name) ## think!!!
 
             if splits in name: # safe
@@ -63,6 +75,13 @@ def process_folders(pattern, scratch_path, country, catalog, various):
                 _artist, _album = name.split(splits,1)
                 _artist = _artist.strip()
                 albumName = rs2.sub(nullify,rs1.sub(nullify, _album.strip()))
+
+                if juno:
+                    _album, _ = albumName.split(splits, 1)
+                    # format is artist - release - label
+                    # remove the label too
+                    albumName = _album
+
                 _album = f"{albumName} [{country}] [{catalog}]"
                 detail = {'album':albumName,'artist':_artist}
 
@@ -85,9 +104,24 @@ def process_folders(pattern, scratch_path, country, catalog, various):
     for fix in fixes:
         _artist = fixes[fix]['artist']
         _album = fixes[fix]['album']
+
+        if juno:
+            cmd = f'cd "{fix}" && rename "s/\_/ /ig" *.flac'
+            print(f"........: {cmd}")
+            run_command(cmd, 1)
+            cmd = f'cd "{fix}" && rename "s/\_/ /ig" *.jp*'
+            print(f"........: {cmd}")
+            run_command(cmd, 1)
+
         cmd = f'cd "{fix}" && rename "s/^(\d+)\./01-\\1 -/ig" *.flac'
         print(f"........: {cmd}")
         run_command(cmd, 1)
+
+        if juno:
+            cmd = f'cd "{fix}" && rename "s/^(\d+)\-{_artist} -/01-\\1 -/ig" *.flac'
+            print(f"........: {cmd}")
+            run_command(cmd, 1)
+
         cmd = f'cd "{fix}" && rename "s/^.* - (\d+)/01-\\1 -/ig" *.flac'
         print(f"........: {cmd}")
         run_command(cmd, 1)
@@ -111,11 +145,21 @@ def process_folders(pattern, scratch_path, country, catalog, various):
             print(f"........: {cmd}")
             run_command(cmd, 1)
 
+def arg2bool(v):
+    if isinstance(v, bool):
+       return v
+    if v.lower() in ('yes', 'true', 't', 'y', '1'):
+        return True
+    elif v.lower() in ('no', 'false', 'f', 'n', '0'):
+        return False
+    else:
+        raise argparse.ArgumentTypeError('Boolean value expected.')
+
 
 # \b(\w+(?:\s*\w*))\s+\1\b
 def main(args):
 
-    process_folders(args.filter+'*', args.directory, args.country, args.catalog, args.various)
+    process_folders(args.filter+'*', args.directory, args.country, args.catalog, args.various, args.juno)
 
 
 log_file = '/tmp/fixflacfolders.log'
@@ -134,9 +178,15 @@ parser.add_argument('--filter', '-f',
                     type=str,
                     default='*-*')
 parser.add_argument('--directory', '-d',
-                    help='Base Directory',
+                    help='Base folder, e.g. /hdd/scratch',
                     type=str,
                     default='/hdd/scratch/')
+parser.add_argument('--juno', '-j',
+                    help='Juno under-scores replacement',
+                    type=arg2bool,
+                    nargs='?',
+                    const=True,
+                    default=False)
 parser.add_argument('--various', '-v',
                     help='Replace "Various Artists"',
                     type=str,

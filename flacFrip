@@ -45,8 +45,9 @@ def process_folders(pattern, scratch_path, country, catalog):
             process = os.path.join(path, name)
             srce = Path(process)
 
-            name = name.replace('\[ONTIVA.COM\] ','')
-            name = name.replace('[ONTIVA.COM] ','')
+            for site in ('ONTIVA','BTCLOD'):
+                name = name.replace(f'\[{site}.COM\] ','')
+                name = name.replace(f'[{site}.COM\] ','')
             name = name.replace('-HD.flac','.flac')
             name = name.replace('-HQ.flac','.flac')
 
